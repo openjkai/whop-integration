@@ -1,19 +1,30 @@
-// Whop API Client
+// Whop API Client using official Whop SDK
+import Whop from '@whop/sdk';
 import axios, { AxiosInstance } from 'axios';
 import type {
   WhopMembership,
   WhopUser,
   WhopProduct,
+  WhopPlan,
   CreateCheckoutResponse,
 } from '@/types/whop';
 
 export class WhopClient {
   private client: AxiosInstance;
+  private sdk: Whop;
   private apiKey: string;
 
   constructor(apiKey?: string) {
     this.apiKey = apiKey || process.env.WHOP_API_KEY || '';
+    const webhookSecret = process.env.WHOP_WEBHOOK_SECRET || '';
     
+    // Initialize official Whop SDK with webhook verification
+    this.sdk = new Whop({
+      apiKey: this.apiKey,
+      webhookKey: webhookSecret ? Buffer.from(webhookSecret).toString('base64') : undefined,
+    });
+    
+    // Keep axios client for backward compatibility
     this.client = axios.create({
       baseURL: 'https://api.whop.com/v1',
       headers: {
@@ -21,6 +32,11 @@ export class WhopClient {
         'Content-Type': 'application/json',
       },
     });
+  }
+  
+  // Get the SDK instance for webhook verification
+  getSDK() {
+    return this.sdk;
   }
 
   // Get user membership details
@@ -93,16 +109,69 @@ export class WhopClient {
     return response.data;
   }
 
-  // Get product details
+  // Get product details (legacy method for backward compatibility)
   async getProduct(productId: string): Promise<WhopProduct> {
-    const response = await this.client.get(`/products/${productId}`);
-    return response.data;
+    const product = await this.getProductById(productId);
+    if (!product) {
+      throw new Error(`Product ${productId} not found`);
+    }
+    return product;
   }
 
-  // List all products
-  async listProducts(): Promise<WhopProduct[]> {
-    const response = await this.client.get('/products');
-    return response.data.data || [];
+  // List all products using official SDK
+  async listProducts(companyId: string): Promise<WhopProduct[]> {
+    try {
+      const products: WhopProduct[] = [];
+      
+      // Use the official SDK to fetch all products
+      for await (const product of this.sdk.products.list({ company_id: companyId })) {
+        products.push(product as WhopProduct);
+      }
+      
+      return products;
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      return [];
+    }
+  }
+
+  // Get a specific product
+  async getProductById(productId: string): Promise<WhopProduct | null> {
+    try {
+      const product = await this.sdk.products.retrieve(productId);
+      return product as WhopProduct;
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      return null;
+    }
+  }
+
+  // List all plans for a company using official SDK
+  async listPlans(companyId: string): Promise<WhopPlan[]> {
+    try {
+      const plans: WhopPlan[] = [];
+      
+      // Use the official SDK to fetch all plans
+      for await (const plan of this.sdk.plans.list({ company_id: companyId })) {
+        plans.push(plan as WhopPlan);
+      }
+      
+      return plans;
+    } catch (error) {
+      console.error('Error fetching plans:', error);
+      return [];
+    }
+  }
+
+  // Get a specific plan
+  async getPlan(planId: string): Promise<WhopPlan | null> {
+    try {
+      const plan = await this.sdk.plans.retrieve(planId);
+      return plan as WhopPlan;
+    } catch (error) {
+      console.error('Error fetching plan:', error);
+      return null;
+    }
   }
 }
 

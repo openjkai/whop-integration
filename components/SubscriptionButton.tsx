@@ -6,6 +6,7 @@ interface SubscriptionButtonProps {
   planId: string;
   planName: string;
   price: string;
+  purchaseUrl?: string; // Direct Whop purchase URL
   metadata?: Record<string, any>;
   className?: string;
 }
@@ -14,6 +15,7 @@ export default function SubscriptionButton({
   planId,
   planName,
   price,
+  purchaseUrl,
   metadata,
   className = '',
 }: SubscriptionButtonProps) {
@@ -25,7 +27,13 @@ export default function SubscriptionButton({
       setLoading(true);
       setError(null);
 
-      // Create checkout session
+      // If we have a direct purchase URL from Whop, use it
+      if (purchaseUrl) {
+        window.location.href = purchaseUrl;
+        return;
+      }
+
+      // Fallback: Create checkout session via API
       const response = await fetch('/api/subscription/create-checkout', {
         method: 'POST',
         headers: {

@@ -26,19 +26,44 @@ export interface WhopProduct {
   id: string;
   name: string;
   description?: string;
-  price: number;
-  currency: string;
+  image_url?: string;
   created_at: number;
+  visibility?: 'visible' | 'hidden' | 'archived';
+  product_type?: string;
+  active_memberships_count?: number;
+  experiences?: any[];
+  metadata?: Record<string, any>;
 }
 
 export interface WhopPlan {
   id: string;
-  product_id: string;
-  plan_type: 'one_time' | 'monthly' | 'yearly' | 'quarterly' | 'lifetime';
-  price: number;
+  created_at: string;
+  updated_at: string;
+  visibility: 'visible' | 'hidden' | 'archived';
+  plan_type: 'renewal' | 'one_time' | 'pre_sale' | 'free_trial';
+  release_method: 'buy_now' | 'whitelist' | 'nft_gate' | 'waitlist';
   currency: string;
-  billing_period?: number;
-  created_at: number;
+  company: {
+    id: string;
+    title: string;
+  };
+  product: {
+    id: string;
+    title: string;
+  };
+  billing_period: number | null;
+  title: string | null;
+  description: string | null;
+  purchase_url: string;
+  expiration_days: number | null;
+  initial_price: number;
+  renewal_price: number;
+  trial_period_days: number | null;
+  member_count: number;
+  stock: number;
+  unlimited_stock: boolean;
+  internal_notes: string | null;
+  payment_method_configuration: any;
 }
 
 export interface WhopWebhookEvent {

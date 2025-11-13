@@ -1,142 +1,134 @@
 // API Route: Whop Webhook Handler
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyWhopWebhook, parseWebhookPayload } from '@/lib/webhook-utils';
-import type { WhopWebhookEvent } from '@/types/whop';
+import { whopClient } from '@/lib/whop-client';
 
 export async function POST(request: NextRequest) {
   try {
     // Get the raw body as text for signature verification
-    const rawBody = await request.text();
+    const requestBodyText = await request.text();
     
-    // Get the webhook signature from headers
-    const signature = request.headers.get('x-whop-signature') || '';
-    const webhookSecret = process.env.WHOP_WEBHOOK_SECRET || '';
-
-    // Verify webhook signature
-    if (!verifyWhopWebhook(rawBody, signature, webhookSecret)) {
-      console.error('Invalid webhook signature');
-      return NextResponse.json(
-        { success: false, message: 'Invalid signature' },
-        { status: 401 }
-      );
-    }
-
-    // Parse the webhook payload
-    const event = parseWebhookPayload<WhopWebhookEvent>(rawBody);
+    // Get headers for webhook verification
+    const headers = Object.fromEntries(request.headers);
     
-    if (!event) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid payload' },
-        { status: 400 }
-      );
-    }
-
-    // Handle different webhook events
-    switch (event.event) {
-      case 'membership.created':
-        await handleMembershipCreated(event);
-        break;
-      
-      case 'membership.updated':
-        await handleMembershipUpdated(event);
-        break;
-      
-      case 'membership.deleted':
-        await handleMembershipDeleted(event);
-        break;
-      
+    // Get the Whop SDK instance for webhook verification
+    const whopSDK = whopClient.getSDK();
+    
+    // Verify and unwrap the webhook using official Whop SDK
+    // This automatically validates the webhook signature according to Standard Webhooks spec
+    const webhookData = whopSDK.webhooks.unwrap(requestBodyText, { headers });
+    
+    console.log('Received webhook:', webhookData.type);
+    
+    // Handle different webhook events based on type
+    // Cast webhookData to any to handle dynamic webhook types
+    const event = webhookData as any;
+    
+    switch (event.type) {
       case 'payment.succeeded':
-        await handlePaymentSucceeded(event);
+        await handlePaymentSucceeded(event.data);
         break;
       
-      case 'payment.failed':
-        await handlePaymentFailed(event);
+      case 'membership.went_valid':
+      case 'membership.activated':
+        await handleMembershipActivated(event.data);
+        break;
+      
+      case 'membership.went_invalid':
+      case 'membership.deactivated':
+        await handleMembershipDeactivated(event.data);
+        break;
+      
+      case 'waitlist.entry.created':
+      case 'entry.created':
+        await handleWaitlistEntryCreated(event.data);
         break;
       
       default:
-        console.log(`Unhandled event type: ${event.event}`);
+        console.log(`Unhandled webhook type: ${event.type}`);
     }
 
-    return NextResponse.json({ success: true, received: true });
+    // Always return 200 quickly to acknowledge receipt
+    return NextResponse.json({ received: true }, { status: 200 });
+    
   } catch (error: any) {
     console.error('Webhook handler error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        message: error.message || 'Webhook processing failed',
-      },
-      { status: 500 }
-    );
+    
+    // If verification fails, return 401
+    if (error.message?.includes('signature') || error.message?.includes('verify')) {
+      return NextResponse.json(
+        { error: 'Invalid webhook signature' },
+        { status: 401 }
+      );
+    }
+    
+    // For other errors, still return 200 to avoid retries
+    // Log the error for debugging
+    console.error('Error processing webhook:', error);
+    return NextResponse.json({ received: true }, { status: 200 });
   }
 }
 
 // Event Handlers
-async function handleMembershipCreated(event: WhopWebhookEvent) {
-  console.log('Membership created:', event.data.membership);
+async function handlePaymentSucceeded(payment: any) {
+  console.log('[PAYMENT SUCCEEDED]', payment);
+  
+  // TODO: Add your custom logic here
+  // - Send payment receipt email
+  // - Log revenue analytics
+  // - Update database with payment info
+  // - Grant/extend access
+  
+  console.log(`Payment ${payment.id} succeeded`);
+  console.log(`Amount: ${payment.total} ${payment.currency}`);
+  console.log(`User: ${payment.user?.email}`);
+  console.log(`Product: ${payment.product?.title}`);
+  console.log(`Membership: ${payment.membership?.id}`);
+  
+  // Example: Store payment in database
+  // await db.payments.create({
+  //   id: payment.id,
+  //   userId: payment.user.id,
+  //   amount: payment.total,
+  //   currency: payment.currency,
+  //   status: payment.status,
+  // });
+}
+
+async function handleMembershipActivated(membership: any) {
+  console.log('[MEMBERSHIP ACTIVATED]', membership);
   
   // TODO: Add your custom logic here
   // - Send welcome email
-  // - Grant access to content
-  // - Update your database
-  // - Log analytics event
-  
-  const membership = event.data.membership;
-  if (membership) {
-    console.log(`New subscription for user ${membership.user_id}`);
-    console.log(`Product: ${membership.product_id}, Plan: ${membership.plan_id}`);
-  }
-}
-
-async function handleMembershipUpdated(event: WhopWebhookEvent) {
-  console.log('Membership updated:', event.data.membership);
-  
-  // TODO: Add your custom logic here
-  // - Update user access
-  // - Handle subscription changes
+  // - Grant access to content/community
+  // - Add user to Discord/Telegram
   // - Update your database
   
-  const membership = event.data.membership;
-  if (membership) {
-    console.log(`Membership ${membership.id} updated`);
-    console.log(`Status: ${membership.status}`);
-    
-    if (membership.cancel_at_period_end) {
-      console.log('Subscription set to cancel at period end');
-      // Handle cancellation pending
-    }
-  }
+  console.log(`New member: ${membership.user?.email}`);
+  console.log(`Product: ${membership.product?.title}`);
+  console.log(`Plan: ${membership.plan?.id}`);
 }
 
-async function handleMembershipDeleted(event: WhopWebhookEvent) {
-  console.log('Membership deleted:', event.data.membership);
+async function handleMembershipDeactivated(membership: any) {
+  console.log('[MEMBERSHIP DEACTIVATED]', membership);
   
   // TODO: Add your custom logic here
-  // - Revoke user access
-  // - Send cancellation confirmation email
+  // - Revoke access
+  // - Remove from Discord/Telegram
+  // - Send cancellation email
   // - Update your database
-  // - Log analytics event
   
-  const membership = event.data.membership;
-  if (membership) {
-    console.log(`Subscription cancelled for user ${membership.user_id}`);
-  }
+  console.log(`Member deactivated: ${membership.user?.email}`);
+  console.log(`Reason: ${membership.status}`);
 }
 
-async function handlePaymentSucceeded(event: WhopWebhookEvent) {
-  console.log('Payment succeeded:', event.data.payment);
+async function handleWaitlistEntryCreated(entry: any) {
+  console.log('[WAITLIST ENTRY CREATED]', entry);
   
   // TODO: Add your custom logic here
-  // - Send payment receipt
-  // - Extend subscription period
-  // - Log revenue analytics
-}
-
-async function handlePaymentFailed(event: WhopWebhookEvent) {
-  console.log('Payment failed:', event.data.payment);
+  // - Send confirmation email
+  // - Add to CRM
+  // - Track in analytics
   
-  // TODO: Add your custom logic here
-  // - Send payment failure notification
-  // - Update subscription status
-  // - Trigger retry logic
+  console.log(`New waitlist entry: ${entry.email}`);
 }
 

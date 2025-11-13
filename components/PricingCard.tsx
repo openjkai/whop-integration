@@ -4,22 +4,26 @@ import SubscriptionButton from './SubscriptionButton';
 
 interface PricingCardProps {
   planId: string;
+  purchaseUrl?: string;
   name: string;
   description: string;
   price: string;
   period: string;
   features: string[];
   highlighted?: boolean;
+  memberCount?: number;
 }
 
 export default function PricingCard({
   planId,
+  purchaseUrl,
   name,
   description,
   price,
   period,
   features,
   highlighted = false,
+  memberCount,
 }: PricingCardProps) {
   return (
     <div
@@ -122,8 +126,26 @@ export default function PricingCard({
         </ul>
       </div>
 
+      {memberCount !== undefined && memberCount > 0 && (
+        <div
+          style={{
+            marginBottom: '16px',
+            padding: '8px 12px',
+            backgroundColor: '#d1fae5',
+            borderRadius: '6px',
+            textAlign: 'center',
+            fontSize: '13px',
+            color: '#065f46',
+            fontWeight: '600',
+          }}
+        >
+          👥 {memberCount} active member{memberCount !== 1 ? 's' : ''}
+        </div>
+      )}
+
       <SubscriptionButton
         planId={planId}
+        purchaseUrl={purchaseUrl}
         planName={name}
         price={`${price}/${period}`}
       />

@@ -47,6 +47,47 @@ export default function Home() {
           }}
         >
           <Link
+            href="/products"
+            style={{
+              padding: '32px',
+              backgroundColor: 'white',
+              borderRadius: '12px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              textDecoration: 'none',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+            }}
+          >
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
+                backgroundColor: '#f59e0b',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '20px',
+                fontSize: '28px',
+              }}
+            >
+              📦
+            </div>
+            <h2
+              style={{
+                fontSize: '24px',
+                fontWeight: '600',
+                marginBottom: '12px',
+                color: '#1f2937',
+              }}
+            >
+              Browse Products
+            </h2>
+            <p style={{ fontSize: '16px', color: '#6b7280', lineHeight: '1.6' }}>
+              View all available products from your Whop store
+            </p>
+          </Link>
+
+          <Link
             href="/pricing"
             style={{
               padding: '32px',
