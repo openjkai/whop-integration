@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let memberships;
+    let memberships: any[] = [];
 
     if (membershipId) {
       // Get specific membership
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         memberships,
-        count: memberships?.length || 0,
+        count: memberships.length,
       },
     });
   } catch (error: any) {

@@ -45,12 +45,24 @@ export class WhopClient {
     return response.data;
   }
 
-  // Get all memberships for a user
-  async getUserMemberships(userId: string): Promise<WhopMembership[]> {
-    const response = await this.client.get('/memberships', {
-      params: { user_id: userId },
-    });
-    return response.data.data || [];
+  // Get all memberships for a user using SDK
+  async getUserMemberships(userId: string): Promise<any[]> {
+    try {
+      const memberships: any[] = [];
+      
+      // Use the official SDK to fetch memberships
+      // Note: SDK uses user_ids (plural) as an array
+      for await (const membership of this.sdk.memberships.list({ 
+        user_ids: [userId]
+      })) {
+        memberships.push(membership);
+      }
+      
+      return memberships;
+    } catch (error) {
+      console.error('Error fetching user memberships:', error);
+      return [];
+    }
   }
 
   // Get user details
@@ -170,6 +182,39 @@ export class WhopClient {
       return plan as WhopPlan;
     } catch (error) {
       console.error('Error fetching plan:', error);
+      return null;
+    }
+  }
+
+  // List members for a company (can filter by email)
+  async listMembers(companyId: string, email?: string): Promise<any[]> {
+    try {
+      const members: any[] = [];
+      
+      // Use the official SDK to fetch members
+      for await (const member of this.sdk.members.list({ 
+        company_id: companyId,
+        query: email, // Filter by email if provided
+      })) {
+        members.push(member);
+      }
+      
+      return members;
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      return [];
+    }
+  }
+
+  // Get member's active memberships by email
+  async getMemberByEmail(companyId: string, email: string): Promise<any | null> {
+    try {
+      const members = await this.listMembers(companyId, email);
+      
+      // Return the first member found (should be unique by email)
+      return members.length > 0 ? members[0] : null;
+    } catch (error) {
+      console.error('Error fetching member by email:', error);
       return null;
     }
   }

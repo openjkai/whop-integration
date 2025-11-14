@@ -6,10 +6,42 @@ import SubscriptionStatus from '@/components/SubscriptionStatus';
 import CancelSubscription from '@/components/CancelSubscription';
 
 export default function SubscriptionPage() {
-  // In a real app, you would get these from authentication/session
+  const [email, setEmail] = useState('');
   const [membershipId, setMembershipId] = useState('');
   const [userId, setUserId] = useState('');
   const [showStatus, setShowStatus] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<any[]>([]);
+
+  const handleSearchByEmail = async () => {
+    if (!email) {
+      alert('Please enter your email');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`/api/members/by-email?email=${encodeURIComponent(email)}`);
+      const result = await response.json();
+
+      if (result.success && result.data.memberships) {
+        setMemberships(result.data.memberships);
+        setUserId(result.data.member.user.id);
+        setShowStatus(true);
+      } else {
+        setError(result.message || 'No subscription found for this email');
+        setShowStatus(false);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to fetch subscription');
+      console.error('Search error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCheckStatus = () => {
     if (membershipId || userId) {
@@ -66,6 +98,7 @@ export default function SubscriptionPage() {
           </p>
         </div>
 
+        {/* Search by Email Section */}
         <div
           style={{
             padding: '32px',
@@ -79,16 +112,19 @@ export default function SubscriptionPage() {
             style={{
               fontSize: '20px',
               fontWeight: '600',
-              marginBottom: '20px',
+              marginBottom: '12px',
               color: '#1f2937',
             }}
           >
-            Check Subscription Status
+            Find Your Subscription
           </h2>
+          <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '20px' }}>
+            Enter the email you used to purchase your subscription
+          </p>
 
           <div style={{ marginBottom: '20px' }}>
             <label
-              htmlFor="membershipId"
+              htmlFor="email"
               style={{
                 display: 'block',
                 marginBottom: '8px',
@@ -97,44 +133,16 @@ export default function SubscriptionPage() {
                 color: '#374151',
               }}
             >
-              Membership ID (optional)
+              Email Address
             </label>
             <input
-              id="membershipId"
-              type="text"
-              value={membershipId}
-              onChange={(e) => setMembershipId(e.target.value)}
-              placeholder="Enter your membership ID"
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label
-              htmlFor="userId"
-              style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#374151',
-              }}
-            >
-              User ID (optional)
-            </label>
-            <input
-              id="userId"
-              type="text"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              placeholder="Enter your user ID"
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              onKeyPress={(e) => e.key === 'Enter' && handleSearchByEmail()}
+              disabled={loading}
               style={{
                 width: '100%',
                 padding: '12px',
@@ -147,21 +155,137 @@ export default function SubscriptionPage() {
           </div>
 
           <button
-            onClick={handleCheckStatus}
+            onClick={handleSearchByEmail}
+            disabled={loading}
             style={{
               padding: '12px 32px',
               fontSize: '16px',
               fontWeight: '600',
-              backgroundColor: '#5B4FE9',
+              backgroundColor: loading ? '#9ca3af' : '#5B4FE9',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {loading ? 'Searching...' : 'Find My Subscription'}
+          </button>
+
+          {error && (
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '12px',
+                backgroundColor: '#fee',
+                color: '#c33',
+                borderRadius: '6px',
+                fontSize: '14px',
+              }}
+            >
+              {error}
+            </div>
+          )}
+        </div>
+
+        {/* Advanced Search Section (Collapsible) */}
+        <details
+          style={{
+            padding: '32px',
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            marginBottom: '32px',
+          }}
+        >
+          <summary
+            style={{
+              fontSize: '16px',
+              fontWeight: '600',
+              color: '#6b7280',
               cursor: 'pointer',
             }}
           >
-            Check Status
-          </button>
-        </div>
+            Advanced: Search by Membership ID or User ID
+          </summary>
+
+          <div style={{ marginTop: '20px' }}>
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                htmlFor="membershipId"
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                }}
+              >
+                Membership ID
+              </label>
+              <input
+                id="membershipId"
+                type="text"
+                value={membershipId}
+                onChange={(e) => setMembershipId(e.target.value)}
+                placeholder="mem_xxxxxxxxxxxxxx"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '16px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                htmlFor="userId"
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                }}
+              >
+                User ID
+              </label>
+              <input
+                id="userId"
+                type="text"
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                placeholder="user_xxxxxxxxxxxxx"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '16px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+
+            <button
+              onClick={handleCheckStatus}
+              style={{
+                padding: '12px 32px',
+                fontSize: '16px',
+                fontWeight: '600',
+                backgroundColor: '#5B4FE9',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+              }}
+            >
+              Check Status
+            </button>
+          </div>
+        </details>
 
         {showStatus && (
           <div
@@ -207,13 +331,14 @@ export default function SubscriptionPage() {
               color: '#1e40af',
             }}
           >
-            💡 Demo Note
+            💡 How It Works
           </h3>
-          <p style={{ fontSize: '14px', color: '#1e40af', lineHeight: '1.6' }}>
-            In a production app, you would automatically get the user&apos;s membership
-            and user IDs from your authentication system (e.g., NextAuth, Auth0, Clerk).
-            This demo requires manual input for testing purposes.
-          </p>
+          <ul style={{ fontSize: '14px', color: '#1e40af', lineHeight: '1.8', paddingLeft: '20px' }}>
+            <li>Enter the <strong>email address</strong> you used when purchasing</li>
+            <li>We&apos;ll find all your active subscriptions</li>
+            <li>You can <strong>cancel with one click</strong> directly from this page</li>
+            <li>Your access continues until the end of your billing period</li>
+          </ul>
         </div>
       </div>
     </main>
